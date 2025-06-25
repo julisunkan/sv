@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -33,9 +32,7 @@
     .delete-btn { position: absolute; top: 10px; right: 10px; }
   </style>
 </head>
-
 <body>
-
 <h1>Survey / Quiz / Poll Builder</h1>
 <div class="container">
   <div style="text-align:center;">
@@ -185,7 +182,7 @@
 
   function generateEmbed() {
     const title = document.getElementById('surveyTitle').value;
-    let formHTML = `<h3>${title}</h3><form id='embedForm' onsubmit='sendEmbedForm(event)'>`;
+    let formHTML = `<h3>${title}</h3><form id='embedForm'>`;
 
     document.querySelectorAll('.question-block').forEach(block => {
       const type = block.getAttribute('data-type');
@@ -199,7 +196,7 @@
         formHTML += `<label>${q}</label><textarea name="q${id}" required></textarea><br><br>`;
       } else if (type === 'radio' || type === 'checkbox') {
         const q = document.getElementById(`q${id}`).value;
-        const inputs = block.querySelectorAll('input[id^="q"]');
+        const inputs = block.querySelectorAll('.option-group input');
         formHTML += `<label>${q}</label><br>`;
         inputs.forEach(inp => {
           const val = inp.value;
@@ -210,7 +207,7 @@
         const q = document.getElementById(`q${id}`).value;
         const multiple = type === 'multiselect' ? 'multiple' : '';
         formHTML += `<label>${q}</label><select name="q${id}" ${multiple}>`;
-        block.querySelectorAll('input[id^="q"]').forEach(inp => {
+        block.querySelectorAll('.option-group input').forEach(inp => {
           const val = inp.value;
           if (val) formHTML += `<option value="${val}">${val}</option>`;
         });
@@ -221,53 +218,54 @@
       } else if (type === 'section') {
         formHTML += `<hr>`;
       } else if (type === 'pagebreak') {
-        formHTML += `</form><br><form id='embedForm' onsubmit='sendEmbedForm(event)'>`;
+        formHTML += `</form><br><form id='embedForm'>`;
       }
     });
 
     formHTML += `<input type="email" name="email" placeholder="Your Email" required><br><br><button type="submit">Submit</button></form>`;
 
-    const finalCode = `<iframe srcdoc="${formHTML.replace(/"/g, '&quot;')}" width="100%" height="600px" frameborder="0"></iframe>`;
+    const userId = localStorage.getItem('emailjs_user_id');
+    const serviceId = localStorage.getItem('emailjs_service_id');
+    const templateId = localStorage.getItem('emailjs_template_id');
+
+    const emailScript = `
+      <script src='https://cdn.emailjs.com/dist/email.min.js'><\/script>
+      <script>
+        (function() {
+          emailjs.init('${userId}');
+          document.getElementById('embedForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = this;
+            const data = new FormData(form);
+            let answers = [];
+            let email = "";
+            for (let [key, val] of data.entries()) {
+              if (key === "email") email = val;
+              else answers.push(key + ": " + val);
+            }
+            emailjs.send('${serviceId}', '${templateId}', {
+              user_email: email,
+              form_response: answers.join("\\n")
+            }).then(function() {
+              alert("✅ Submitted successfully!");
+              form.reset();
+            }, function(error) {
+              alert("❌ Failed to submit.");
+              console.error(error);
+            });
+          });
+        })();
+      <\/script>
+    `;
+
+    const finalCode = `<iframe srcdoc="${(formHTML + emailScript).replace(/"/g, '&quot;').replace(/\n/g, '')}" width="100%" height="600px" frameborder="0"></iframe>`;
     document.getElementById('embedCode').value = finalCode;
     document.getElementById('embedContainer').style.display = 'block';
   }
-
-  function sendEmbedForm(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = new FormData(form);
-    let answers = [];
-    let email = "";
-
-    for (let [key, val] of data.entries()) {
-      if (key === "email") email = val;
-      else answers.push(`${key}: ${val}`);
-    }
-
-    const serviceId = localStorage.getItem('emailjs_service_id');
-    const templateId = localStorage.getItem('emailjs_template_id');
-    if (!serviceId || !templateId) {
-      alert("⚠️ EmailJS not configured in settings.");
-      return;
-    }
-
-    emailjs.send(serviceId, templateId, {
-      user_email: email,
-      form_response: answers.join("\n")
-    }).then(() => {
-      alert("✅ Submitted successfully!");
-      form.reset();
-    }).catch(err => {
-      alert("❌ Failed to submit.");
-      console.error(err);
-    });
-  }
 </script>
 
-<!-- Footer -->
 <footer style="text-align:center; padding: 20px; color: white; font-size: 0.9rem;">
   © <span id="year"></span> Survey / Quiz / Poll Builder. All rights reserved.
 </footer>
-
 </body>
 </html>
